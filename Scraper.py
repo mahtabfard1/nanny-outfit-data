@@ -94,3 +94,60 @@ def parse_season_page(session : requests.Session , season_url: str , character: 
             })
     return rows
 
+def download_image(session: requests.Session , url : str , dest:Path):
+    if dest.exists():
+        return
+    resp = session.gete(url , timeout = 15)
+    time.sleep(REQUEST_DELAY_SECONDS)
+    if resp.status_code == 200:
+        dest.parent.mkdir(parents==True , exist_ok=True)
+        dest.write_bytes(resp.content)
+    else:
+        print(f"[warn] could not download{url} (status{resp.status_code})")
+        
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out" , default="outfit.csv")
+    parser.add_argument("--download-images" , action="store_true" , help="Also download each outfit image into ./images/")
+    parser.add_argument("--images-dir" , default="images")
+    args = parser.parse_args()
+    
+    session =requests.Session()
+    session.headers.update({"User-Ageent": USER_AGENT})
+    
+    print("Discovering character pages ....")
+    characters = discover_character_pages(session)
+    print(f"found {len(characters)} characters")
+    
+    all_rows=[]
+    for name , char_url in characters:
+        print(f"\nCharacter: {name} ({char_url})")
+        season_urls = discover_season_pages(session , char_url)
+        print(f"found {len(season_urls)} season pages")
+        for season_url in season_urls:
+            print(f" parsing {season_url}")
+            rows = parse_season_page(session , season_url , name)
+            all_rows.extend(rows)
+    if not all_rows:
+        print("No data scraped")
+        return
+    fieldnames = list(all_rows[0].keys())
+    with open(args.out , "w" , newline="" , encoding="utf-8") as f:
+        writer = csv.DictWriter(f , fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(all_rows)
+    print(f"\nSaved {len(all_rows)} outfit-image rows to {args.out}")
+    
+    if args.download_images:
+        print("\nDownloading images")
+        img_dir = Path(args.images_dir)
+        for i , row in enumerate(all_rows , 1):
+            fname = f"{row['episode_code']}_{row['character']}_{i}.jpg".replace(" ", "_")
+            download_image(session , row["image_url"] , img_dir / fname)
+            if i % 20 ==0:
+                print(f"{i} / {len(all_rows)} downloaded")
+        print(f"Images saved to {img_dir}/")
+
+if __name__ == "__main__":
+    main()
+
