@@ -33,7 +33,7 @@ def discover_character_pages(session :requests.Session) -> list[tuple[str , str]
     soup = BeautifulSoup(html , "html.parser")
     chars = []
     seen = set()
-    for a in soup.select("a [href*='/characters/']"):
+    for a in soup.select("a[href*='/characters/']"):
         href =  a["href"]
         full = urljoin(BASE , href)
         path = urlparse(full).path
@@ -53,7 +53,7 @@ def discover_season_pages(session : requests.Session , season_url: str , charact
     for a in soup.select("a[href]"):
         full = urljoin(BASE , a["href"])
         path = urlparse(full).path.rstrip("/")
-        if path.startwith(char_path + "/") and path != char_path:
+        if path.startswith(char_path + "/") and path != char_path:
             season_url.add(full)
     return sorted(season_url)
 def parse_season_page(session : requests.Session , season_url: str , character: str):
@@ -86,7 +86,7 @@ def parse_season_page(session : requests.Session , season_url: str , character: 
                 continue
             img_url = urljoin(BASE , src)
             rows.append({
-                "charachter" : character,
+                "character" : character,
                 "season" : season_num , 
                 "episode_code" : current_episode_code,
                 "episode_title" : current_episode_title,
@@ -97,10 +97,10 @@ def parse_season_page(session : requests.Session , season_url: str , character: 
 def download_image(session: requests.Session , url : str , dest:Path):
     if dest.exists():
         return
-    resp = session.gete(url , timeout = 15)
+    resp = session.get(url , timeout = 15)
     time.sleep(REQUEST_DELAY_SECONDS)
     if resp.status_code == 200:
-        dest.parent.mkdir(parents==True , exist_ok=True)
+        dest.parent.mkdir(parents=True , exist_ok=True)
         dest.write_bytes(resp.content)
     else:
         print(f"[warn] could not download{url} (status{resp.status_code})")
@@ -113,7 +113,7 @@ def main():
     args = parser.parse_args()
     
     session =requests.Session()
-    session.headers.update({"User-Ageent": USER_AGENT})
+    session.headers.update({"User-Agent": USER_AGENT})
     
     print("Discovering character pages ....")
     characters = discover_character_pages(session)
