@@ -43,3 +43,16 @@ def discover_character_pages(session :requests.Session) -> list[tuple[str , str]
             chars.append((a.get_text(strip=True) , full))
     return chars 
 
+def discover_season_pages(session : requests.Session , season_url: str , character_url :str):
+    html = get(session , character_url)
+    if not html:
+        return[]
+    soup = BeautifulSoup(html , "html.parser")
+    season_url = set()
+    char_path = urlparse(character_url).path.rstrip("/")
+    for a in soup.select("a[href]"):
+        full = urljoin(BASE , a["href"])
+        path = urlparse(full).path.rstrip("/")
+        if path.startwith(char_path + "/") and path != char_path:
+            season_url.add(full)
+    return sorted(season_url)
