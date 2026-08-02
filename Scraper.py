@@ -56,3 +56,41 @@ def discover_season_pages(session : requests.Session , season_url: str , charact
         if path.startwith(char_path + "/") and path != char_path:
             season_url.add(full)
     return sorted(season_url)
+def parse_season_page(session : requests.Session , season_url: str , character: str):
+    html = get(session , season_url)
+    if not html:
+        return[]
+    soup = BeautifulSoup(html , "html.parser")
+    
+    #season number from the page title e.g "Gracie - Season 4"
+    
+    title = soup.find("h1")
+    season_label = title.get_text(strip = True) if title else ""
+    m = re.search(r"Season\s*(\d+)" , season_label)
+    season_num = int(m.group(1)) if m else None
+    
+    rows = []
+    current_episode_code , current_episode_title = None , None
+    
+    for tag in soup.find_all(["h2" , "img"]):
+        if tag.name =="h2":
+            text = tag.get_text(" " , strip = True).replace("#" , "") .strip()
+            m=EPISODE_RE.match(text)
+            if m:
+                current_episode_code , current_episode_title = m.group(1) , m.group(2).strip()
+            else:
+                current_episode_code , current_episode_title = None , text
+        elif tag.name == "img" and current_episode_code:
+            src = tag.get("src" , "")
+            if not src:
+                continue
+            img_url = urljoin(BASE , src)
+            rows.append({
+                "charachter" : character,
+                "season" : season_num , 
+                "episode_code" : current_episode_code,
+                "episode_title" : current_episode_title,
+                "image_url" : img_url,
+            })
+    return rows
+
